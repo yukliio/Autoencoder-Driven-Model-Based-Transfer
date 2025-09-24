@@ -1,0 +1,370 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "metadata": {
+    "colab": {
+      "provenance": [],
+      "include_colab_link": true
+    },
+    "kernelspec": {
+      "name": "python3",
+      "display_name": "Python 3"
+    },
+    "language_info": {
+      "name": "python"
+    }
+  },
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/yukliio/Autoencoder-Driven-Model-Based-Transfer/blob/main/nbs/billybobjoe\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "gMHs2gqZ6KY-"
+      },
+      "outputs": [],
+      "source": []
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "# What is an autoencoder?"
+      ],
+      "metadata": {
+        "id": "JWjncTfcJFP8"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# imports\n",
+        "import torch\n",
+        "from torch.distributions import Normal\n",
+        "import torchvision\n",
+        "import numpy as np\n",
+        "import matplotlib.pyplot as plt\n",
+        "import torch.nn as nn\n",
+        "import torch.optim as optim\n",
+        "import torch.nn.functional as F\n",
+        "from torchvision.utils import make_grid\n",
+        "import torchvision.transforms as transforms\n",
+        "from tqdm import tqdm\n",
+        "from torchvision.utils import save_image\n",
+        "import matplotlib.pyplot as plt\n"
+      ],
+      "metadata": {
+        "id": "v8QrWFAgJPyo"
+      },
+      "execution_count": 19,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# load the MNIST dataset\n",
+        "\n",
+        "mnist_train = torchvision.datasets.MNIST(\n",
+        "    root='./',\n",
+        "    train=True,\n",
+        "    download=True,\n",
+        "    transform=transforms.ToTensor()\n",
+        ")\n",
+        "\n",
+        "mnist_test = torchvision.datasets.MNIST(\n",
+        "    root='./',\n",
+        "    train=False,\n",
+        "    download=True,\n",
+        "    transform=transforms.ToTensor()\n",
+        ")"
+      ],
+      "metadata": {
+        "id": "gV4l2-dDJUEJ"
+      },
+      "execution_count": 20,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "print(\"Number of training samples:\", len(mnist_train))\n",
+        "\n",
+        "loader = DataLoader(mnist_train, batch_size=len(mnist_train))\n",
+        "images, ground_truth = next(iter(loader))"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "pExoUOO-UgHZ",
+        "outputId": "4fefe05f-d694-49f2-b9ca-49e72bc1ae8e"
+      },
+      "execution_count": 21,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Number of training samples: 60000\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "images = images.squeeze()\n",
+        "print(images.shape)\n",
+        "print(ground_truth.shape)"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "1w_7JnzfVwyt",
+        "outputId": "4ea888bc-7e48-4618-a0ea-17f81fc42282"
+      },
+      "execution_count": 22,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "torch.Size([60000, 28, 28])\n",
+            "torch.Size([60000])\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "print(torch.min(images[0]))\n",
+        "print(torch.max(images[0]))\n",
+        "\n",
+        "images_int = (images * 255).byte()\n",
+        "print(images_int.min(), images_int.max())"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "O8A8hLfHV7SI",
+        "outputId": "8f8e6680-0bc6-4e16-b1e3-3a5e05440a0f"
+      },
+      "execution_count": 23,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "tensor(0.)\n",
+            "tensor(1.)\n",
+            "tensor(0, dtype=torch.uint8) tensor(255, dtype=torch.uint8)\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "image_index = 12\n",
+        "\n",
+        "print(ground_truth[image_index]) # print the ground truth\n",
+        "plt.imshow(images[image_index], cmap='gray') # display the image"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 465
+        },
+        "id": "WHdq0sRkWpBg",
+        "outputId": "d3e3789d-e1d1-4970-9839-f7ea05ec362b"
+      },
+      "execution_count": 24,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "tensor(3)\n"
+          ]
+        },
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "<matplotlib.image.AxesImage at 0x7dd0aa3e9d30>"
+            ]
+          },
+          "metadata": {},
+          "execution_count": 24
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "text/plain": [
+              "<Figure size 640x480 with 1 Axes>"
+            ],
+            "image/png": "iVBORw0KGgoAAAANSUhEUgAAAaAAAAGdCAYAAABU0qcqAAAAOnRFWHRTb2Z0d2FyZQBNYXRwbG90bGliIHZlcnNpb24zLjEwLjAsIGh0dHBzOi8vbWF0cGxvdGxpYi5vcmcvlHJYcgAAAAlwSFlzAAAPYQAAD2EBqD+naQAAG7xJREFUeJzt3X9s1PUdx/HXgfREba/W2l9CsYDCItApg65TO5WG0m0oPzLBkQ02g8EVN+3UrdsU3ZZ065KNuDBdlgU0E/yRDYi6kGGxJW4thgphRK20qWsdbZkk3JViC7af/UG8cVDA73HX9/V4PpJP0vt+v+9+3378pi++d99+6nPOOQEAMMxGWTcAALg4EUAAABMEEADABAEEADBBAAEATBBAAAATBBAAwAQBBAAwcYl1A6cbHBzUwYMHlZqaKp/PZ90OAMAj55x6enqUl5enUaPOfp+TcAF08OBBjR8/3roNAMAF6ujo0Lhx4866P+HegktNTbVuAQAQA+f7eR63AFq3bp2uvfZaXXrppSoqKtJbb731mep42w0AksP5fp7HJYBefPFFVVZWas2aNXr77bdVWFiosrIyHTp0KB6nAwCMRC4OZs+e7SoqKsKvBwYGXF5enquurj5vbTAYdJIYDAaDMcJHMBg858/7mN8BHT9+XE1NTSotLQ1vGzVqlEpLS9XQ0HDG8f39/QqFQhEDAJD8Yh5AH330kQYGBpSdnR2xPTs7W11dXWccX11drUAgEB48AQcAFwfzp+CqqqoUDAbDo6Ojw7olAMAwiPnvAWVmZmr06NHq7u6O2N7d3a2cnJwzjvf7/fL7/bFuAwCQ4GJ+B5SSkqKZM2eqtrY2vG1wcFC1tbUqLi6O9ekAACNUXFZCqKys1PLly/WFL3xBs2fP1tq1a9Xb26tvf/vb8TgdAGAEiksALVmyRP/973/1+OOPq6urS5///Oe1bdu2Mx5MAABcvHzOOWfdxKlCoZACgYB1GwCACxQMBpWWlnbW/eZPwQEALk4EEADABAEEADBBAAEATBBAAAATBBAAwAQBBAAwQQABAEwQQAAAEwQQAMAEAQQAMEEAAQBMEEAAABMEEADABAEEADBBAAEATBBAAAATBBAAwAQBBAAwQQABAEwQQAAAEwQQAMAEAQQAMEEAAQBMEEAAABMEEADABAEEADBBAAEATBBAAAATBBAAwAQBBAAwQQABAEwQQAAAEwQQAMAEAQQAMEEAAQBMEEAAABMEEADABAEEADBBAAEATBBAAAATBBAAwAQBBAAwQQABAEwQQAAAEwQQAMAEAQQAMEEAAQBMEEAAABMEEADABAEEADBBAAEATFxi3cBIdMUVV3iuWbJkieeavr4+zzUzZ870XJOamuq5RpKWLVvmuaaurs5zzX/+8x/PNYmuq6vLc83WrVs91+zevdtzDTBcuAMCAJgggAAAJmIeQE888YR8Pl/EmDp1aqxPAwAY4eLyGdANN9yg119//f8nuYSPmgAAkeKSDJdccolycnLi8a0BAEkiLp8BHThwQHl5eZo4caKWLVum9vb2sx7b39+vUCgUMQAAyS/mAVRUVKQNGzZo27Ztevrpp9XW1qZbb71VPT09Qx5fXV2tQCAQHuPHj491SwCABBTzACovL9fXv/51zZgxQ2VlZfrb3/6mI0eO6KWXXhry+KqqKgWDwfDo6OiIdUsAgAQU96cD0tPTdf3116ulpWXI/X6/X36/P95tAAASTNx/D+jo0aNqbW1Vbm5uvE8FABhBYh5ADz/8sOrr6/XBBx/on//8pxYuXKjRo0frnnvuifWpAAAjWMzfgvvwww91zz336PDhw7r66qt1yy23qLGxUVdffXWsTwUAGMF8zjln3cSpQqGQAoGAdRvnVFNT47nm4YcfjkMnuJgMDg56rnnnnXeiOtemTZuGpeaDDz7wXIORIxgMKi0t7az7WQsOAGCCAAIAmCCAAAAmCCAAgAkCCABgggACAJgggAAAJgggAIAJAggAYIIAAgCYIIAAACYIIACACRYjjcLZ/rjeuUycODEOncTG4cOHo6rbt29fjDux19zc7LlmypQpnmvS09M919x4442ea4bT/PnzPde89tprcegEiYLFSAEACYkAAgCYIIAAACYIIACACQIIAGCCAAIAmCCAAAAmCCAAgAkCCABgggACAJgggAAAJgggAIAJAggAYOIS6wZGorKyMs81119/veea999/33NNNI4dOxZVXWdnZ4w7uXikpqZ6rvnXv/7luSY/P99zTbTuvPNOzzWshn1x4w4IAGCCAAIAmCCAAAAmCCAAgAkCCABgggACAJgggAAAJgggAIAJAggAYIIAAgCYIIAAACYIIACACRYjjUJra+uw1CB5fe1rX/NcM5wLi/b393uu+eMf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8+Zp0aJFKigoUGtrq3784x+rvLxcDQ0NGj16tHV7MTc4OKgHH3xQN998s6ZNmybp5PWQkpKi9PT0iGOT+XoYah4k6Rvf+IYmTJigvLw87du3Tz/84Q/V3Nysv/71r4bdRkr4AML/lZeXh7+eMWOGioqKNGHCBL300ku69957DTtDIli6dGn46+nTp2vGjBmaNGmS6urqNGfOHMPO4qOiokL79++/KD4HPZezzcN9990X/nr69OnKzc3VnDlz1NraqkmTJg13m0NK+LfgMjMzNXr06DOeYunu7lZOTo5RV4khPT1d119/vVpaWqxbMfPpNcD1caaJEycqMzMzKa+P1atX69VXX9Ubb7wR8edbcnJydPz4cR05ciTi+GS9Hs42D0MpKiqSpIS6HhI+gFJSUjRz5kzV1taGtw0ODqq2tlbFxcWGndk7evSoWltblZuba92KmYKCAuXk5ERcH6FQSLt27bror48PP/xQhw8fTqrrwzmn1atXa/PmzdqxY4cKCgoi9s+cOVNjxoyJuB6am5vV3t6eVNfD+eZhKHv37pWkxLoerJ+C+CxeeOEF5/f73YYNG9w777zj7rvvPpeenu66urqsWxtWP/jBD1xdXZ1ra2tz//jHP1xpaanLzMx0hw4dsm4trnp6etyePXvcnj17nCT3m9/8xu3Zs8f9+9//ds4598tf/tKlp6e7rVu3un379rm77rrLFRQUuI8//ti489g61zz09PS4hx9+2DU0NLi2tjb3+uuvu5tuusldd911rq+vz7r1mLn//vtdIBBwdXV1rrOzMzyOHTsWPmbVqlUuPz/f7dixw+3evdsVFxe74uJiw65j73zz0NLS4n72s5+53bt3u7a2Nrd161Y3ceJEV1JSYtx5pBERQM4597vf/c7l5+e7lJQUN3v2bNfY2Gjd0rBbsmSJy83NdSkpKe6aa65xS5YscS0tLdZtxd0bb7zhJJ0xli9f7pw7+Sj2Y4895rKzs53f73dz5sxxzc3Ntk3Hwbnm4dixY27u3Lnu6quvdmPGjHETJkxwK1euTLp/pA313y/JrV+/PnzMxx9/7L773e+6K6+80l122WVu4cKFrrOz067pODjfPLS3t7uSkhKXkZHh/H6/mzx5snvkkUdcMBi0bfw0/DkGAICJhP8MCACQnAggAIAJAggAYIIAAgCYIIAAACYIIACACQIIAGCCAAIAmCCAAAAmCCAAgAkCCABgggACAJj4Hzyx66j3SliNAAAAAElFTkSuQmCC\n"
+          },
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "from torch.utils.data import Dataset\n",
+        "\n",
+        "class MNISTDataset(Dataset):\n",
+        "    \"\"\"\n",
+        "    Creates a MAP-style PyTorch Dataset. Can query the dataset via index.\n",
+        "\n",
+        "    Need to implement __getitem__ and __len__ methods.\n",
+        "    \"\"\"\n",
+        "    def __init__(self, path):\n",
+        "        # load the data into memory\n",
+        "        # generally speaking you don't want to do this\n",
+        "        self.images, self.ground_truth = torch.load(path)\n",
+        "\n",
+        "    def __getitem__(self, idx):\n",
+        "        \"\"\"\n",
+        "        Returns image with index idx.\n",
+        "        \"\"\"\n",
+        "        x = self.images[idx].float()\n",
+        "        x = torch.Tensor(x)\n",
+        "        x = torch.flatten(x) # \"flatten\" the image from (28x28) to (784)\n",
+        "        return x\n",
+        "\n",
+        "    def __len__(self):\n",
+        "        \"\"\"\n",
+        "        Returns the length of the dataset\n",
+        "        \"\"\"\n",
+        "        return len(self.ground_truth)"
+      ],
+      "metadata": {
+        "id": "ToJgPu9-WyUD"
+      },
+      "execution_count": 25,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "import torch.nn as nn # submodule for neural network building blocks\n",
+        "\n",
+        "class AutoEncoder(nn.Module):\n",
+        "    \"\"\"\n",
+        "    AutoEncoder with fully connected layers.\n",
+        "\n",
+        "    Architecture from: https://medium.com/pytorch/implementing-an-autoencoder-in-pytorch-19baa22647d1\n",
+        "\n",
+        "    Parameters\n",
+        "    ----------\n",
+        "    input_shape\n",
+        "      shape of the input data\n",
+        "    latent_dim\n",
+        "      size of the latent dimension\n",
+        "    \"\"\"\n",
+        "    def __init__(self, input_shape, latent_dim = 128):\n",
+        "      super().__init__()\n",
+        "      # two fully connected layers for encoder (input_shape -> latent_dim)\n",
+        "      self.encoder_l1 = nn.Linear(in_features=input_shape, out_features=latent_dim)\n",
+        "      self.encoder_l2 = nn.Linear(in_features=latent_dim, out_features=latent_dim)\n",
+        "\n",
+        "      # two fully connected layers for decoder (128 -> input_shape)\n",
+        "      self.decoder_l1 = nn.Linear(in_features=latent_dim, out_features=latent_dim)\n",
+        "      self.decoder_l2 = nn.Linear(in_features=latent_dim, out_features=input_shape)\n",
+        "\n",
+        "\n",
+        "    def forward(self, x):\n",
+        "      \"\"\"\n",
+        "      Define how your network is going to be run.\n",
+        "\n",
+        "      Parameters\n",
+        "      ----------\n",
+        "      x\n",
+        "        Input data\n",
+        "\n",
+        "      Returns\n",
+        "      -------\n",
+        "      x_hat\n",
+        "        Reconstructed data\n",
+        "\n",
+        "      \"\"\"\n",
+        "      latent = self.run_encoder(x)\n",
+        "      x_hat = self.run_decoder(latent)\n",
+        "      return x_hat\n",
+        "\n",
+        "    def run_encoder(self, x):\n",
+        "      # Runs encoder\n",
+        "      output = F.relu(self.encoder_l1(x)) # relu adds non linearity\n",
+        "      latent = F.relu(self.encoder_l2(output)) # this our latent representation\n",
+        "      return latent\n",
+        "\n",
+        "    def run_decoder(self, latent):\n",
+        "      # Runs decoder\n",
+        "      output = F.relu(self.decoder_l1(latent))\n",
+        "      x_hat = F.relu(self.decoder_l2(output)) # reconstructed images\n",
+        "      return x_hat"
+      ],
+      "metadata": {
+        "id": "5-3Df40qXyhl"
+      },
+      "execution_count": 26,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "train_dataset = MNISTDataset('MNIST/processed/training.pt')\n",
+        "test_dataset = MNISTDataset('MNIST/processed/test.pt')\n",
+        "\n",
+        "# get the shape of our input data\n",
+        "image_shape = train_dataset[0].shape[0]\n",
+        "print(image_shape)\n",
+        "\n",
+        "# initialize AutoEncoder\n",
+        "model = AutoEncoder(input_shape = image_shape)\n",
+        "\n",
+        "# move the model onto GPU\n",
+        "model.cuda()"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 356
+        },
+        "id": "xi1Kn9q9X5wI",
+        "outputId": "abe91945-f97b-4190-8068-a51e845d2bfb"
+      },
+      "execution_count": 27,
+      "outputs": [
+        {
+          "output_type": "error",
+          "ename": "FileNotFoundError",
+          "evalue": "[Errno 2] No such file or directory: 'MNIST/processed/training.pt'",
+          "traceback": [
+            "\u001b[0;31m---------------------------------------------------------------------------\u001b[0m",
+            "\u001b[0;31mFileNotFoundError\u001b[0m                         Traceback (most recent call last)",
+            "\u001b[0;32m/tmp/ipython-input-3474898050.py\u001b[0m in \u001b[0;36m<cell line: 0>\u001b[0;34m()\u001b[0m\n\u001b[0;32m----> 1\u001b[0;31m \u001b[0mtrain_dataset\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mMNISTDataset\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;34m'MNIST/processed/training.pt'\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m      2\u001b[0m \u001b[0mtest_dataset\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mMNISTDataset\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;34m'MNIST/processed/test.pt'\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m      3\u001b[0m \u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m      4\u001b[0m \u001b[0;31m# get the shape of our input data\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m      5\u001b[0m \u001b[0mimage_shape\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mtrain_dataset\u001b[0m\u001b[0;34m[\u001b[0m\u001b[0;36m0\u001b[0m\u001b[0;34m]\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mshape\u001b[0m\u001b[0;34m[\u001b[0m\u001b[0;36m0\u001b[0m\u001b[0;34m]\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n",
+            "\u001b[0;32m/tmp/ipython-input-535727582.py\u001b[0m in \u001b[0;36m__init__\u001b[0;34m(self, path)\u001b[0m\n\u001b[1;32m     10\u001b[0m         \u001b[0;31m# load the data into memory\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m     11\u001b[0m         \u001b[0;31m# generally speaking you don't want to do this\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m---> 12\u001b[0;31m         \u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mimages\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mground_truth\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mtorch\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mload\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mpath\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m     13\u001b[0m \u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m     14\u001b[0m     \u001b[0;32mdef\u001b[0m \u001b[0m__getitem__\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mself\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0midx\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m:\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n",
+            "\u001b[0;32m/usr/local/lib/python3.12/dist-packages/torch/serialization.py\u001b[0m in \u001b[0;36mload\u001b[0;34m(f, map_location, pickle_module, weights_only, mmap, **pickle_load_args)\u001b[0m\n\u001b[1;32m   1482\u001b[0m         \u001b[0mpickle_load_args\u001b[0m\u001b[0;34m[\u001b[0m\u001b[0;34m\"encoding\"\u001b[0m\u001b[0;34m]\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0;34m\"utf-8\"\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m   1483\u001b[0m \u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m-> 1484\u001b[0;31m     \u001b[0;32mwith\u001b[0m \u001b[0m_open_file_like\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mf\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0;34m\"rb\"\u001b[0m\u001b[0;34m)\u001b[0m \u001b[0;32mas\u001b[0m \u001b[0mopened_file\u001b[0m\u001b[0;34m:\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m   1485\u001b[0m         \u001b[0;32mif\u001b[0m \u001b[0m_is_zipfile\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mopened_file\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m:\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m   1486\u001b[0m             \u001b[0;31m# The zipfile reader is going to advance the current file position.\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n",
+            "\u001b[0;32m/usr/local/lib/python3.12/dist-packages/torch/serialization.py\u001b[0m in \u001b[0;36m_open_file_like\u001b[0;34m(name_or_buffer, mode)\u001b[0m\n\u001b[1;32m    757\u001b[0m \u001b[0;32mdef\u001b[0m \u001b[0m_open_file_like\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mname_or_buffer\u001b[0m\u001b[0;34m:\u001b[0m \u001b[0mFileLike\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mmode\u001b[0m\u001b[0;34m:\u001b[0m \u001b[0mstr\u001b[0m\u001b[0;34m)\u001b[0m \u001b[0;34m->\u001b[0m \u001b[0m_opener\u001b[0m\u001b[0;34m[\u001b[0m\u001b[0mIO\u001b[0m\u001b[0;34m[\u001b[0m\u001b[0mbytes\u001b[0m\u001b[0;34m]\u001b[0m\u001b[0;34m]\u001b[0m\u001b[0;34m:\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m    758\u001b[0m     \u001b[0;32mif\u001b[0m \u001b[0m_is_path\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mname_or_buffer\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m:\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m--> 759\u001b[0;31m         \u001b[0;32mreturn\u001b[0m \u001b[0m_open_file\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mname_or_buffer\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mmode\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m    760\u001b[0m     \u001b[0;32melse\u001b[0m\u001b[0;34m:\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m    761\u001b[0m         \u001b[0;32mif\u001b[0m \u001b[0;34m\"w\"\u001b[0m \u001b[0;32min\u001b[0m \u001b[0mmode\u001b[0m\u001b[0;34m:\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n",
+            "\u001b[0;32m/usr/local/lib/python3.12/dist-packages/torch/serialization.py\u001b[0m in \u001b[0;36m__init__\u001b[0;34m(self, name, mode)\u001b[0m\n\u001b[1;32m    738\u001b[0m \u001b[0;32mclass\u001b[0m \u001b[0m_open_file\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0m_opener\u001b[0m\u001b[0;34m[\u001b[0m\u001b[0mIO\u001b[0m\u001b[0;34m[\u001b[0m\u001b[0mbytes\u001b[0m\u001b[0;34m]\u001b[0m\u001b[0;34m]\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m:\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m    739\u001b[0m     \u001b[0;32mdef\u001b[0m \u001b[0m__init__\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mself\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mname\u001b[0m\u001b[0;34m:\u001b[0m \u001b[0mUnion\u001b[0m\u001b[0;34m[\u001b[0m\u001b[0mstr\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mos\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mPathLike\u001b[0m\u001b[0;34m[\u001b[0m\u001b[0mstr\u001b[0m\u001b[0;34m]\u001b[0m\u001b[0;34m]\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mmode\u001b[0m\u001b[0;34m:\u001b[0m \u001b[0mstr\u001b[0m\u001b[0;34m)\u001b[0m \u001b[0;34m->\u001b[0m \u001b[0;32mNone\u001b[0m\u001b[0;34m:\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m--> 740\u001b[0;31m         \u001b[0msuper\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0m__init__\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mopen\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mname\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mmode\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m    741\u001b[0m \u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m    742\u001b[0m     \u001b[0;32mdef\u001b[0m \u001b[0m__exit__\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mself\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0;34m*\u001b[0m\u001b[0margs\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m:\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n",
+            "\u001b[0;31mFileNotFoundError\u001b[0m: [Errno 2] No such file or directory: 'MNIST/processed/training.pt'"
+          ]
+        }
+      ]
+    }
+  ]
+}
